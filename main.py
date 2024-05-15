@@ -71,10 +71,11 @@ def calc_freq_range(params_dict: Dict[str, str]) -> (float, float):
         raise ValueError("周波数の範囲の計算に失敗しました")
 
 
-def load_data(lines, params: Dict[str, str]) -> pl.DataFrame:
+def load_data(lines, params: Dict[str, str], y_col: str) -> pl.DataFrame:
     """データの読み込み"""
     try:
         data = np.array([line.split() for line in lines], dtype=float)
+        # 選択するY軸
         # 周波数範囲の計算
         start_freq, stop_freq = calc_freq_range(params)
         index = start_freq + data[:, 0] * \
@@ -112,7 +113,7 @@ def display_data(df):
 def plot_data(df):
     """ グラフの描画 """
     try:
-        y_col = st.selectbox("Y軸の列を選択", df.columns, index=1)
+        # y_col = st.selectbox("Y軸の列を選択", df.columns[1:], index=1)
         title = "Frequency (Hz)"
         fig = px.line(df, x=df[title], y=y_col)
         fig.update_layout(title=y_col, xaxis_title=title, yaxis_title=y_col)
@@ -130,17 +131,29 @@ if __name__ == "__main__":
     st.write("ファイルをドラッグ&ドロップしてデータを可視化してください。")
 
     # ファイルのアップロード
-    uploaded_file = st.file_uploader("ファイルをアップロード", type=['txt'])
+    uploaded_files = st.file_uploader("ファイルをアップロード",
+                                      type=['txt'],
+                                      accept_multiple_files=True)
 
-    if uploaded_file is not None:
+    if uploaded_files:
+        dfs = []
+        # 異なるファイルの読み込みでパラメータ比較のために使う
+        old_params_dict = {}
         try:
-            # テキストファイル読み込み
-            lines = read_file(uploaded_file)
-            header, body = lines[0], lines[1:]
-            # パラメータ読み込み
-            params_dict = extract_params(header)
-            # データ読み込み
-            df = load_data(body, params_dict)
+            for uploaded_file in uploaded_files:
+                # テキストファイル読み込み
+                lines = read_file(uploaded_file)
+                header, body = lines[0], lines[1:]
+                # パラメータ読み込み
+                params_dict = extract_params(header)
+                if old_params_dict != {} and old_params_dict != params_dict:
+                    raise KeyError("複数のファイル間で異なるパラメータです。同一のパラメータのみ同時に表示可能です。")
+                # データ読み込み
+                y_col = st.selectbox("Y軸の列を選択", df.columns[1:], index=1)
+                df = load_data(body, params_dict, y_col)
+                dfs.append(df)
+                old_params_dict = params_dict
+            merged_df = pl.concat(dfs, axis=1)
             plot_data(df)
             display_data(df)
         except (KeyError, ValueError) as e:
