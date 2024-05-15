@@ -49,6 +49,13 @@ def scale_value(value: float, unit: str) -> float:
 def calc_freq_range(params_dict):
     """ 周波数の範囲の計算 """
     try:
+        # start,stopをparamsから取得
+        start_freq = params_dict.get("FREQ:START"),
+        stop_freq = params_dict.get("FREQ:STOP")
+        if start_freq is not None and stop_freq is not None:
+            return start_freq, stop_freq
+        # start, stop どちらかがNoneのとき
+        # 中心周波数とスパンからstart, stopを計算
         val, unit = params_dict["FREQ:CENT"].split()
         center_freq = scale_value(float(val), unit)
         val, unit = params_dict["FREQ:SPAN"].split()
@@ -61,18 +68,27 @@ def calc_freq_range(params_dict):
         raise ValueError("周波数の範囲の計算に失敗しました")
 
 
-def load_data(lines, start_freq, stop_freq):
+def load_data(lines, params: Dict[str, str]) -> pd.DataFrame:
     """データの読み込み"""
     try:
         data = np.array([line.split() for line in lines], dtype=float)
-        frequencies = start_freq + data[:, 0] * \
+        # 周波数範囲の計算
+        start_freq, stop_freq = calc_freq_range(params)
+        index = start_freq + data[:, 0] * \
             (stop_freq - start_freq) / (len(data) - 1)
-        df = pd.DataFrame({
-            "Frequency (Hz)": frequencies,
-            "TRAC1": data[:, 1],
-            "TRAC2": data[:, 2],
-            "TRAC3": data[:, 3]
-        })
+        # TRACで始まるキーを抽出
+        trac_keys = [k for k in params.keys() if k.startswith("TRAC")]
+        # data = {
+        #     "TRAC1": data[:, 1],
+        #     "TRAC2": data[:, 2],
+        #     "TRAC3": data[:, 3]
+        # },
+        values = {
+            params[k]: data[:, i]
+            for i, k in enumerate(trac_keys, start=1)
+        }
+        df = pd.DataFrame(values, index=index)
+        df.index.name = "Frequency (Hz)"
         return df
     except Exception as e:
         st.error(f"データの読み込みエラー: {e}")
@@ -95,7 +111,7 @@ def plot_data(df):
         columns = df.columns.tolist()
         y_col = st.selectbox("Y軸の列を選択", columns, index=1)
         title = "Frequency (Hz)"
-        fig = px.line(df, x=title, y=y_col)
+        fig = px.line(df, x=df.index, y=y_col)
         fig.update_layout(title=y_col, xaxis_title=title, yaxis_title=y_col)
         st.plotly_chart(fig)
     except Exception as e:
@@ -120,9 +136,8 @@ if __name__ == "__main__":
             header, body = lines[0], lines[1:]
             # パラメータ読み込み
             params_dict = extract_params(header)
-            start_freq, stop_freq = calc_freq_range(params_dict)
             # データ読み込み
-            df = load_data(body, start_freq, stop_freq)
+            df = load_data(body, params_dict)
             plot_data(df)
             display_data(df)
         except ValueError as e:
