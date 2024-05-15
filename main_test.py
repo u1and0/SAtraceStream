@@ -1,7 +1,7 @@
 from main import read_file, extract_params, scale_value, calc_freq_range, load_data
 import unittest
 from unittest.mock import mock_open, patch
-import pandas as pd
+import polars as pl
 
 
 class TestApp(unittest.TestCase):
@@ -24,13 +24,16 @@ class TestApp(unittest.TestCase):
 
     def test_scale_value(self):
         """単位変換が正常に行われることをテスト"""
-        center = "25.5 kHz"
-        val, unit = center.split()
-        value = scale_value(float(val), unit)
+        value = scale_value("25.5 kHz")
         self.assertAlmostEqual(value, 25500.0, places=1)
 
     def test_calc_freq_range(self):
         """周波数の範囲の計算が正常に行われることをテスト"""
+        params_dict = {"FREQ:START": "10 kHz", "FREQ:STOP": "50 kHz"}
+        start_freq, stop_freq = calc_freq_range(params_dict)
+        self.assertAlmostEqual(start_freq, 10000.0, places=1)
+        self.assertAlmostEqual(stop_freq, 50000.0, places=1)
+
         params_dict = {"FREQ:CENT": "25.5 kHz", "FREQ:SPAN": "3.5 kHz"}
         start_freq, stop_freq = calc_freq_range(params_dict)
         self.assertAlmostEqual(start_freq, 22000.00, places=2)
@@ -44,10 +47,15 @@ class TestApp(unittest.TestCase):
             "2 -63.78 -64.03 -55.90"
         ]
         _, body = lines[0], lines[1:]
-        start_freq, stop_freq = 23.75, 27.25
-        df = load_data(body, start_freq, stop_freq)
+        params = {
+            "FREQ:START": "23 kHz",
+            "FREQ:STOP": "25 kHz",
+            "TRAC1:TYPE": "WRIT",
+            "TRAC2:TYPE": "AVER",
+            "TRAC3:TYPE": "MAXH",
+        }
+        df = load_data(body, params)
         self.assertEqual(df.shape, (3, 4))
-        self.assertTrue(pd.notnull(df["Frequency (kHz)"]).all())
 
     def test_display_data(self):
         # データの表示が正常に行われることをテスト

@@ -35,34 +35,37 @@ def extract_params(line: str) -> Dict[str, str]:
         raise ValueError("パラメータの抽出に失敗しました")
 
 
-def scale_value(value: float, unit: str) -> float:
+def scale_value(s: str) -> float:
     """値と単位を渡して正しい数値を返す"""
     # 単位計算
     ureg = pint.UnitRegistry()
     try:
-        value_with_unit = (value * ureg[unit]).to_base_units()
+        val, unit = s.split()
+        value_with_unit = (float(val) * ureg[unit]).to_base_units()
         return value_with_unit.magnitude
     except pint.errors.UndefinedUnitError:
         raise ValueError(f"Unknown unit: {unit}")
 
 
-def calc_freq_range(params_dict):
+def calc_freq_range(params_dict: Dict[str, str]) -> (float, float):
     """ 周波数の範囲の計算 """
     try:
         # start,stopをparamsから取得
-        start_freq = params_dict.get("FREQ:START"),
-        stop_freq = params_dict.get("FREQ:STOP")
-        if start_freq is not None and stop_freq is not None:
-            return start_freq, stop_freq
+        start_str = params_dict.get("FREQ:START")
+        stop_str = params_dict.get("FREQ:STOP")
+        if start_str is not None and stop_str is not None:
+            return scale_value(start_str), scale_value(stop_str)
         # start, stop どちらかがNoneのとき
         # 中心周波数とスパンからstart, stopを計算
-        val, unit = params_dict["FREQ:CENT"].split()
-        center_freq = scale_value(float(val), unit)
-        val, unit = params_dict["FREQ:SPAN"].split()
-        span_freq = scale_value(float(val), unit)
-        start_freq = center_freq - span_freq
-        stop_freq = center_freq + span_freq
-        return start_freq, stop_freq
+        center_str = params_dict.get("FREQ:CENT")
+        span_str = params_dict.get("FREQ:SPAN")
+        if center_str is not None and span_str is not None:
+            center_freq = scale_value(center_str)
+            span_freq = scale_value(span_str)
+            start_freq = center_freq - span_freq
+            stop_freq = center_freq + span_freq
+            return start_freq, stop_freq
+        raise KeyError("周波数の範囲の計算エラー: FREQから始まるキーが引数に存在しません")
     except Exception as e:
         st.error(f"周波数の範囲の計算エラー: {e}")
         raise ValueError("周波数の範囲の計算に失敗しました")
@@ -83,11 +86,11 @@ def load_data(lines, params: Dict[str, str]) -> pl.DataFrame:
         #     "TRAC2": data[:, 2],
         #     "TRAC3": data[:, 3]
         # },
-        values = {
+        values = {"Frequency (Hz)": index}
+        values.update({
             params[k]: data[:, i]
             for i, k in enumerate(trac_keys, start=1)
-        }
-        values["Frequency (Hz)"] = index
+        })
         df = pl.DataFrame(values)
         # df.index.name = "Frequency (Hz)"
         return df
@@ -140,5 +143,5 @@ if __name__ == "__main__":
             df = load_data(body, params_dict)
             plot_data(df)
             display_data(df)
-        except ValueError as e:
+        except (KeyError, ValueError) as e:
             st.error(str(e))
