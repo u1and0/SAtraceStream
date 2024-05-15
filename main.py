@@ -1,9 +1,9 @@
 from typing import Dict
-import numpy as np
-import matplotlib.pyplot as plt
-import pandas as pd
-import streamlit as st
 import pint
+import numpy as np
+import pandas as pd
+import plotly.express as px
+import streamlit as st
 
 
 def read_file(file):
@@ -24,7 +24,7 @@ def read_file(file):
         raise ValueError("ファイルの読み込みに失敗しました")
 
 
-def extract_params(line: str):
+def extract_params(line: str) -> Dict[str, str]:
     """ パラメータの抽出 """
     try:
         filename, header = line.lstrip("# <").split(">")
@@ -68,7 +68,7 @@ def load_data(lines, start_freq, stop_freq):
         frequencies = start_freq + data[:, 0] * \
             (stop_freq - start_freq) / (len(data) - 1)
         df = pd.DataFrame({
-            "Frequency (kHz)": frequencies / 1000,
+            "Frequency (Hz)": frequencies,
             "TRAC1": data[:, 1],
             "TRAC2": data[:, 2],
             "TRAC3": data[:, 3]
@@ -82,8 +82,9 @@ def load_data(lines, start_freq, stop_freq):
 def display_data(df):
     """データの表示"""
     try:
+        print(df)
         st.write(f"データの形状: {df.shape}")
-        st.write(df.head())
+        st.write(df)
     except Exception as e:
         st.error(f"データの表示エラー: {e}")
 
@@ -93,12 +94,10 @@ def plot_data(df):
     try:
         columns = df.columns.tolist()
         y_col = st.selectbox("Y軸の列を選択", columns, index=1)
-
-        fig, ax = plt.subplots(figsize=(10, 6))
-        ax.plot(df["Frequency (kHz)"], df[y_col])
-        ax.set_xlabel("Frequency (kHz)")
-        ax.set_ylabel(y_col)
-        st.pyplot(fig)
+        title = "Frequency (Hz)"
+        fig = px.line(df, x=title, y=y_col)
+        fig.update_layout(title=y_col, xaxis_title=title, yaxis_title=y_col)
+        st.plotly_chart(fig)
     except Exception as e:
         st.error(f"グラフの描画エラー: {e}")
 
@@ -124,7 +123,7 @@ if __name__ == "__main__":
             start_freq, stop_freq = calc_freq_range(params_dict)
             # データ読み込み
             df = load_data(body, start_freq, stop_freq)
-            display_data(df)
             plot_data(df)
+            display_data(df)
         except ValueError as e:
             st.error(str(e))
