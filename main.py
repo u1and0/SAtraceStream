@@ -1,7 +1,7 @@
 from typing import Dict
 import pint
 import numpy as np
-import pandas as pd
+import polars as pl
 import plotly.express as px
 import streamlit as st
 
@@ -68,7 +68,7 @@ def calc_freq_range(params_dict):
         raise ValueError("周波数の範囲の計算に失敗しました")
 
 
-def load_data(lines, params: Dict[str, str]) -> pd.DataFrame:
+def load_data(lines, params: Dict[str, str]) -> pl.DataFrame:
     """データの読み込み"""
     try:
         data = np.array([line.split() for line in lines], dtype=float)
@@ -87,8 +87,9 @@ def load_data(lines, params: Dict[str, str]) -> pd.DataFrame:
             params[k]: data[:, i]
             for i, k in enumerate(trac_keys, start=1)
         }
-        df = pd.DataFrame(values, index=index)
-        df.index.name = "Frequency (Hz)"
+        values["Frequency (Hz)"] = index
+        df = pl.DataFrame(values)
+        # df.index.name = "Frequency (Hz)"
         return df
     except Exception as e:
         st.error(f"データの読み込みエラー: {e}")
@@ -108,10 +109,9 @@ def display_data(df):
 def plot_data(df):
     """ グラフの描画 """
     try:
-        columns = df.columns.tolist()
-        y_col = st.selectbox("Y軸の列を選択", columns, index=1)
+        y_col = st.selectbox("Y軸の列を選択", df.columns, index=1)
         title = "Frequency (Hz)"
-        fig = px.line(df, x=df.index, y=y_col)
+        fig = px.line(df, x=df[title], y=y_col)
         fig.update_layout(title=y_col, xaxis_title=title, yaxis_title=y_col)
         st.plotly_chart(fig)
     except Exception as e:
