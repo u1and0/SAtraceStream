@@ -62,8 +62,8 @@ def calc_freq_range(params_dict: Dict[str, str]) -> (float, float):
         if center_str is not None and span_str is not None:
             center_freq = scale_value(center_str)
             span_freq = scale_value(span_str)
-            start_freq = center_freq - span_freq
-            stop_freq = center_freq + span_freq
+            start_freq = center_freq - span_freq / 2
+            stop_freq = center_freq + span_freq / 2
             return start_freq, stop_freq
         raise KeyError("周波数の範囲の計算エラー: FREQから始まるキーが引数に存在しません")
     except Exception as e:
