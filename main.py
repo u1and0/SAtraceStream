@@ -1,8 +1,9 @@
-from typing import Dict
+from typing import Dict, List
 import pint
 import numpy as np
 import polars as pl
 import plotly.express as px
+import plotly.graph_objects as go
 import streamlit as st
 
 
@@ -29,7 +30,9 @@ def extract_params(line: str) -> Dict[str, str]:
     try:
         filename, header = line.lstrip("# <").split(">")
         header_tuple = [i.split(maxsplit=1) for i in header.split(";")]
-        return {i[0].lstrip(":"): i[1] for i in header_tuple if len(i) == 2}
+        params = {i[0].lstrip(":"): i[1] for i in header_tuple if len(i) == 2}
+        params.update({"filename": filename})
+        return params
     except Exception as e:
         st.error(f"パラメータの抽出エラー: {e}")
         raise ValueError("パラメータの抽出に失敗しました")
@@ -71,10 +74,11 @@ def calc_freq_range(params_dict: Dict[str, str]) -> (float, float):
         raise ValueError("周波数の範囲の計算に失敗しました")
 
 
-def load_data(lines, params: Dict[str, str]) -> pl.DataFrame:
+def load_data(lines, params: Dict[str, str], y_col: str) -> List[pl.DataFrame]:
     """データの読み込み"""
     try:
         data = np.array([line.split() for line in lines], dtype=float)
+        # 選択するY軸
         # 周波数範囲の計算
         start_freq, stop_freq = calc_freq_range(params)
         index = start_freq + data[:, 0] * \
@@ -93,7 +97,10 @@ def load_data(lines, params: Dict[str, str]) -> pl.DataFrame:
         })
         df = pl.DataFrame(values)
         # df.index.name = "Frequency (Hz)"
-        return df
+        return pl.DataFrame({
+            "Frequency (Hz)": index,
+            params["filename"]: df[y_col],
+        })
     except Exception as e:
         st.error(f"データの読み込みエラー: {e}")
         raise ValueError("データの読み込みに失敗しました")
@@ -109,13 +116,20 @@ def display_data(df):
         st.error(f"データの表示エラー: {e}")
 
 
-def plot_data(df):
+def plot_data(dfs: Dict[str, pl.DataFrame]):
     """ グラフの描画 """
     try:
-        y_col = st.selectbox("Y軸の列を選択", df.columns, index=1)
-        title = "Frequency (Hz)"
-        fig = px.line(df, x=df[title], y=y_col)
-        fig.update_layout(title=y_col, xaxis_title=title, yaxis_title=y_col)
+        # y_col = st.selectbox("Y軸の列を選択", df.columns[1:], index=1)
+        # title = "Frequency (Hz)"
+        fig = go.Figure()
+        # データフレームの辞書を一つずつグラフオブジェクトに変換してfigに追加する
+        for name, df in dfs.items():
+            graph = go.Scatter(x=df["Frequency (Hz)"], y=df[name], name=name)
+            fig.add_trace(graph)
+
+        fig.update_layout()
+        # fig = px.line(df, x=df[title], y=y_col)
+        # fig.update_layout(title=y_col, xaxis_title=title, yaxis_title=y_col)
         st.plotly_chart(fig)
     except Exception as e:
         st.error(f"グラフの描画エラー: {e}")
@@ -130,18 +144,26 @@ if __name__ == "__main__":
     st.write("ファイルをドラッグ&ドロップしてデータを可視化してください。")
 
     # ファイルのアップロード
-    uploaded_file = st.file_uploader("ファイルをアップロード", type=['txt'])
+    uploaded_files = st.file_uploader("ファイルをアップロード",
+                                      type=['txt'],
+                                      accept_multiple_files=True)
 
-    if uploaded_file is not None:
+    if uploaded_files:
+        dfs = {}
         try:
-            # テキストファイル読み込み
-            lines = read_file(uploaded_file)
-            header, body = lines[0], lines[1:]
-            # パラメータ読み込み
-            params_dict = extract_params(header)
-            # データ読み込み
-            df = load_data(body, params_dict)
-            plot_data(df)
-            display_data(df)
+            for uploaded_file in uploaded_files:
+                # テキストファイル読み込み
+                lines = read_file(uploaded_file)
+                header, body = lines[0], lines[1:]
+                # パラメータ読み込み
+                params_dict = extract_params(header)
+                print(params_dict)
+                # データ読み込み
+                # y_col = st.selectbox("Y軸の列を選択", df.columns[1:], index=1)
+                df = load_data(body, params_dict, "AVER")
+                print(df)
+                dfs[params_dict["filename"]] = df
+            # display_data(df)
+            plot_data(dfs)
         except (KeyError, ValueError) as e:
             st.error(str(e))
