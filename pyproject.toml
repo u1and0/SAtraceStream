@@ -1,0 +1,20 @@
+[tool.poetry]
+name = "satracestream"
+version = "0.1.0"
+description = "トレースをブラウザ上で表示して比較するサーバーを立てる"
+authors = ["u1and0 <e01.ando60@gmail.com>"]
+license = "MIT"
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.12"
+pint = "^0.24.4"
+numpy = "^2.2.0"
+polars = "^1.17.1"
+plotly = "^5.24.1"
+streamlit = "^1.41.1"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

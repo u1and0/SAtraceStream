@@ -11,7 +11,7 @@ def read_file(file):
     """ファイルの読み込み"""
     try:
         lines = []
-        for line in uploaded_file.getvalue().decode("utf-8").split("\n"):
+        for line in file.getvalue().decode("utf-8").split("\n"):
             # for line in  file.readline():
             if line.strip() == "# <eof>":
                 break
