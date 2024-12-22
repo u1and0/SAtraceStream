@@ -153,6 +153,8 @@ if __name__ == "__main__":
 
     if uploaded_files:
         dfs = {}
+        trace_type = st.selectbox("トレースの種類を選択", ["AVER", "MAXH", "WRIT"])
+
         try:
             for uploaded_file in uploaded_files:
                 # テキストファイル読み込み
@@ -163,7 +165,7 @@ if __name__ == "__main__":
                 print(params_dict)
                 # データ読み込み
                 # y_col = st.selectbox("Y軸の列を選択", df.columns[1:], index=1)
-                df = load_data(body, params_dict, "AVER")
+                df = load_data(body, params_dict, trace_type)
                 print(df)
                 dfs[params_dict["filename"]] = df
             # display_data(df)
