@@ -2,9 +2,10 @@ from typing import Dict, List
 import pint
 import numpy as np
 import polars as pl
-import plotly.express as px
+# import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
+from SAtraceWatchdog.plotly_custom import template
 
 
 def read_file(file):
@@ -127,9 +128,11 @@ def plot_data(dfs: Dict[str, pl.DataFrame]):
             graph = go.Scatter(x=df["Frequency (Hz)"], y=df[name], name=name)
             fig.add_trace(graph)
 
-        fig.update_layout()
+        fig.update_layout(template=template)
         # fig = px.line(df, x=df[title], y=y_col)
         # fig.update_layout(title=y_col, xaxis_title=title, yaxis_title=y_col)
+        fig.update_xaxes(title="Frequency[kHz]")
+        fig.update_yaxes(title="Power[dBm]")
         st.plotly_chart(fig)
     except Exception as e:
         st.error(f"グラフの描画エラー: {e}")
